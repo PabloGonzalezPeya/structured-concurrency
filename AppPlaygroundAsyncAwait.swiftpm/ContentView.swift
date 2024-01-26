@@ -87,7 +87,7 @@ struct ContentView: View {
 
             Button("Test Task Thread") {
                 /*
-                 A task created by Task.init inherits the priority, task-local values, and actor context of the caller, which means it can access and modify the data and methods of the actor synchronously. However, it is not cancelled when its parent task is cancelled, so you need to keep a reference to it and cancel it manually if needed.
+                 Una task creada con Task.init hereda la prioridad, valores de la task local, y contexto de actor del que la invoca.
                  */
                 Task() {
                     print("I inherit main actor")
@@ -100,9 +100,8 @@ struct ContentView: View {
                 }
 
                 /*
-                 Swift detached tasks, created by Task.detached, are a way of creating and running asynchronous tasks that are not part of the structured concurrency hierarchy. They are independent from their parent context and do not inherit its priority, task-local storage, or cancellation behavior. Detached tasks are useful when you need to perform a task that is completely independent of the parent task and does not need to communicate with it or return any value to it.
+                 Una task creada con Task.detached no es parte de la jerarquía de concurrencia estructurada. Son independientes del contexto del padre y no heredan su prioridad. Son utiles cuando precisas realizas una tarea que es completamente independiente de la tarea padre y no necesita comunicarse con ella o devolverle algún valor.
                  */
-
 //                Task.detached {
 //                    print("I have no inheritance, global queue equivalent")
 //                    await noMainFunction()
@@ -123,6 +122,20 @@ struct ContentView: View {
 
                     _ = await [a, b, c, d, e, f]
                 }
+            }
+
+            Button("Factors") {
+                Task(priority: .background) {
+                    let factors = await factors(for:10000000)
+                    print("background")
+                    print(factors)
+                }
+
+//                Task(priority: .userInitiated) {
+//                    let factors = await factorsYield(for:10000000)
+//                    print("userInitiated")
+//                    print(factors)
+//                }
             }
         }
     }
@@ -173,6 +186,11 @@ extension ContentView {
         try await Task.sleep(for: .seconds(5))
     }
 
+    func printIndex(index: Int) async -> String {
+        print(index)
+        return String(index)
+    }
+
     func fetchImage(completion: @escaping (Result<UIImage, Error>) -> Void) {
         let imageURL = URL(string: "https://source.unsplash.com/random")!
         print("Starting network request...")
@@ -201,9 +219,9 @@ extension ContentView {
     }
 
     /*
-     Cuando trabajas en escribir una capa de conversión para transformar tu código basado en callback, a código que soporta async/await en Swift, te vas a encontrar normalmente usando continuations. Una continuation es un closure que llamas con el resultado de tu taréa asincrona. Puedes pasarle lo que obtengas de tu taréa, un objeto que conforme a Error o un Result.
+     Cuando trabajas en escribir una capa de conversión para transformar tu código basado en callback, a código que soporta async/await en Swift, te vas a encontrar normalmente usando continuations. Una continuation es un closure que llamas con el resultado de tu taréa asíncrona. Puedes pasarle lo que obtengas de tu taréa, un objeto que conforme a Error o un Result.
 
-     Notarás que hay 4 métodos que puedes usar para crear una continuación:
+     Notarás que hay 4 métodos que puedes usar para crear una continuation:
 
      withCheckedThrowingContinuation
      withCheckedContinuation
@@ -225,9 +243,34 @@ extension ContentView {
      Is it important that you get rid of this overhead? No, in by far the most situations I highly doubt that the overhead of checked continuations is noticeable in your apps. That said, if you do find a reason to get rid of your checked continuation in favor of an unsafe one, it’s important that you understand what an unsafe continuation does exactly.
      */
 
-    func printIndex(index: Int) async -> String {
-        print(index)
-        return String(index)
+    func factors(for number: Int) async -> [Int] {
+        var result = [Int]()
+
+        for check in 1...number {
+            if number.isMultiple(of: check) {
+                result.append(check)
+                print(Thread.current.description)
+            }
+        }
+
+        return result
+    }
+
+    func factorsYield(for number: Int) async -> [Int] {
+        var result = [Int]()
+
+        for check in 1...number {
+            if number.isMultiple(of: check) {
+                result.append(check)
+                /*
+                 Piensa en llamar a Task.yield() como el equivalente a llamar un Task.doNothing(), lo cual le da a Swift la oportunidad de ajustar la ejecución de sus Tasks sin crear ningun nuevo trabajo real, dandole la oportunidad al hilo de hacer otras cosas.
+                 */
+                await Task.yield()
+                print(Thread.current.description)
+            }
+        }
+
+        return result
     }
 
 }

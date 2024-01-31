@@ -6,7 +6,7 @@ import SwiftUI
 
  Conceptos clave básicos:
 
- Task - Una Task nos permite crear un ambiente concurrente para un método no concurrente, invocar métodos usando async/await.
+ Task - Una Task nos permite crear un ambiente concurrente para un método no concurrente,esto es, invocar métodos usando async/await.
  Al trabajar con Tasks la primera vez, puedes reconocer familiaridades entre dispatch queues y tasks. Ambas permiten despachar trabajo a otro hilo con una prioridad específica. De todas formas, las tasks son diferentes en cuanto a que eliminan la verbosidad de las dispatch queues.
 
 Async/Await - Await esta esperando una respuesta de su amigo Async :) Cuando invoco una función async lo hago con await en el contexto de una Task o dentro de una función Async.
@@ -89,7 +89,7 @@ struct ContentView: View {
                 /*
                  Una task creada con Task.init hereda la prioridad, valores de la task local, y contexto de actor del que la invoca.
                  */
-                Task() {
+                Task {
                     print("I inherit main actor")
                     await noMainFunction()
                     await mainFunction()
@@ -100,7 +100,7 @@ struct ContentView: View {
                 }
 
                 /*
-                 Una task creada con Task.detached no es parte de la jerarquía de concurrencia estructurada. Son independientes del contexto del padre y no heredan su prioridad. Son utiles cuando precisas realizas una tarea que es completamente independiente de la tarea padre y no necesita comunicarse con ella o devolverle algún valor.
+                 Una task creada con Task.detached no es parte de la jerarquía de concurrencia estructurada. Son independientes del contexto del padre y no heredan su prioridad. Son utiles cuando precisas realizar una tarea que es completamente independiente de la tarea padre y no necesita comunicarse con ella o devolverle algún valor.
                  */
 //                Task.detached {
 //                    print("I have no inheritance, global queue equivalent")
@@ -126,11 +126,10 @@ struct ContentView: View {
 
             Button("Factors") {
                 Task(priority: .background) {
-                    let factors = await factors(for:10000000)
+                    let factors = await factors(for: 10_000_000)
                     print("background")
                     print(factors)
                 }
-
 //                Task(priority: .userInitiated) {
 //                    let factors = await factorsYield(for:10000000)
 //                    print("userInitiated")
@@ -167,7 +166,7 @@ extension ContentView {
     }
 
     func handleLongRunningOperationTap() {
-        let longTask = Task<Void, Never> {
+        Task<Void, Never> {
             do {
                 try await performLongRunningTask()
                 print("Done from long running task")
@@ -179,7 +178,6 @@ extension ContentView {
                 }
             }
         }
-        longTask.cancel()
     }
 
     func performLongRunningTask() async throws {
@@ -189,6 +187,14 @@ extension ContentView {
     func printIndex(index: Int) async -> String {
         print(index)
         return String(index)
+    }
+
+    func fetchImage2() async throws  -> UIImage {
+        let imageURL = URL(string: "https://source.unsplash.com/random")!
+        print("Starting network request...")
+        let response = try await URLSession.shared.data(for: URLRequest(url: imageURL))
+        let image = UIImage(data: response.0)!
+        return image
     }
 
     func fetchImage(completion: @escaping (Result<UIImage, Error>) -> Void) {
@@ -219,7 +225,7 @@ extension ContentView {
     }
 
     /*
-     Cuando trabajas en escribir una capa de conversión para transformar tu código basado en callback, a código que soporta async/await en Swift, te vas a encontrar normalmente usando continuations. Una continuation es un closure que llamas con el resultado de tu taréa asíncrona. Puedes pasarle lo que obtengas de tu taréa, un objeto que conforme a Error o un Result.
+     Cuando quieras adaptar tu código basado en callback, a código que soporta async/await en Swift, te encontrarás normalmente usando continuations. Una continuation es un closure que llamas con el resultado de tu taréa asíncrona. Puedes pasarle lo que obtengas de tu taréa, un objeto que conforme a Error o un Result.
 
      Notarás que hay 4 métodos que puedes usar para crear una continuation:
 
@@ -230,7 +236,7 @@ extension ContentView {
 
      Lo más relevante pareciera ser que puedes optar entre una Checked o Unsafe. Antes veamos algunas reglas que debemos seguir al usar una continuation
      - Solo debes llamar el resume de una continuation una sola vez. Hacerlo más de una vez es un error del desarrollador y puede generar comportamiento inesperado.
-     - Debes retener la coninuación para resumir con un valor o un error. El no hacerlo hace que tu código quede esperando por siempre.
+     - Debes retener la continuación para resumir con un valor o un error. El no hacerlo hace que tu código quede esperando por siempre.
 
      Si fallas en hacer alguno de estos puntos, es un error del desarrollador. Por suerte la checked continuation realiza algunas verificaciones para asegurarlo.
      Una unsafe funciona con las mismas reglas que una checked pero no chequea que adieras a dichas reglas.
